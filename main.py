@@ -1,93 +1,92 @@
 from langchain import SQLDatabase
 from langchain_experimental.sql import SQLDatabaseChain
-from langchain.chat_models import ChatOpenAI  # Usar el modelo de chat de OpenAI, versión actual
+from langchain.chat_models import ChatOpenAI  # Use the recommended version of the OpenAI chat model
 from dotenv import load_dotenv
 import os
 
-# Cargar las variables de entorno desde el archivo .env
+# Load environment variables from the .env file
 load_dotenv()
 
-# Obtener la clave de API de OpenAI y la URL de la base de datos PostgreSQL
+# Get the OpenAI API key and the PostgreSQL database URL
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
 PG_DB_URL = os.environ.get('PG_DB_URL')
 
-# Establecer la clave de API en el entorno
+# Set the API key in the environment
 os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
 
-# Crear la conexión a la base de datos
+# Create the database connection
 db = SQLDatabase.from_uri(PG_DB_URL)
 
-# Crear el modelo LLM usando la versión recomendada
+# Create the LLM model using the recommended version
 llm = ChatOpenAI(temperature=0)
 
-# Crear la cadena de base de datos con el método correcto
+# Create the database chain using the correct method
 db_chain = SQLDatabaseChain.from_llm(llm=llm, db=db, verbose=False)
 
-def generar_consulta(natural_query):
+def generate_query(natural_query):
     """
-    Genera una consulta SQL a partir de una consulta en lenguaje natural y ajusta la sintaxis si es necesario.
+    Generates an SQL query from a natural language query and adjusts the syntax if necessary.
     """
     try:
-        # Obtener la información de las tablas de la base de datos
+        # Retrieve the table information from the database
         table_info = db.get_table_info()
         
-        # Crear los parámetros necesarios para generar la consulta SQL
+        # Create the necessary parameters to generate the SQL query
         inputs = {
             'input': natural_query,
             'table_info': table_info,
-            'top_k': 1  # Limita las opciones para mantener las más relevantes
+            'top_k': 1  # Limit the options to keep the most relevant ones
         }
         
-        # Usa el modelo para traducir la consulta en lenguaje natural a SQL
+        # Use the model to translate the natural language query to SQL
         sql_query = db_chain.llm_chain.predict(**inputs)
         
-        # Ajustar la consulta para asegurar compatibilidad con SQL Server
-        sql_query = ajustar_sintaxis(sql_query)
+        # Adjust the query to ensure compatibility with SQL Server
+        sql_query = adjust_syntax(sql_query)
         return sql_query
     except Exception as e:
-        print("Error al generar la consulta SQL:", e)
+        print("Error generating the SQL query:", e)
         return None
 
-def ajustar_sintaxis(sql_query):
+def adjust_syntax(sql_query):
     """
-    Ajusta la sintaxis de la consulta SQL para asegurar compatibilidad con SQL Server.
+    Adjusts the SQL query syntax to ensure compatibility with SQL Server.
     """
-    # Reemplazar comillas dobles por corchetes si es necesario
+    # Replace double quotes with brackets if necessary
     sql_query = sql_query.replace("\"", "[")
-    sql_query = sql_query.replace("[[", "[")  # Asegurar que no haya corchetes duplicados
-    sql_query = sql_query.replace("]", "]")  # Mantener el cierre de corchetes correcto
+    sql_query = sql_query.replace("[[", "[")  # Ensure no duplicate brackets
+    sql_query = sql_query.replace("]", "]")  # Maintain correct closing brackets
 
-    # Ajustar otros posibles problemas de sintaxis si es necesario
+    # Adjust other potential syntax issues if necessary
     if "SELECT TOP 1" in sql_query:
         sql_query = sql_query.replace("SELECT TOP 1", "SELECT TOP 1")
 
     return sql_query
 
-def ejecutar_consulta(sql_query):
+def execute_query(sql_query):
     """
-    Ejecuta la consulta SQL en la base de datos.
+    Executes the SQL query in the database.
     """
     try:
-        # Ejecutar la consulta SQL usando la base de datos
-        resultado = db.run(sql_query)
-        return resultado
+        # Execute the SQL query using the database
+        result = db.run(sql_query)
+        return result
     except Exception as e:
-        print("Error al ejecutar la consulta SQL:", e)
+        print("Error executing the SQL query:", e)
         return None
 
-def mostrar_resultado(resultado):
+def display_result(result):
     """
-    Muestra solo el resultado de la consulta SQL.
+    Displays only the result of the SQL query.
     """
-    if resultado is not None and len(resultado) > 0:
-        # Asumiendo que el resultado es una lista de filas (tuplas)
-        print(resultado[0][0])
+    if result is not None and len(result) > 0:
+        # Assuming the result is a list of rows (tuples)
+        print(result[0][0])
 
+# Example usage
+natural_query = "tell me the type of holiday that is most common in the holiday table"
+sql_query = generate_query(natural_query)
 
-# Ejemplo de uso
-consulta_natural = " decime el tipo de feriado que mas esta en la tabla feriado"
-consulta_sql = generar_consulta(consulta_natural)
-
-if consulta_sql:
-    resultado = ejecutar_consulta(consulta_sql)
-    mostrar_resultado(resultado)
+if sql_query:
+    result = execute_query(sql_query)
+    display_result(result)
